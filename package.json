@@ -1,9 +1,9 @@
 {
-  "name": "tf-aws-vpn-client",
+  "name": "tf-aws-cloudtrail",
   "version": "1.0.0",
   "repository": {
     "type": "git",
-    "url": "git@github.com:nstrlabs/tf-aws-vpn-client.git"
+    "url": "git@github.com:nstrlabs/tf-aws-cloudtrail.git"
   },
   "dependencies": {
     "@semantic-release/changelog": "6.0.3",

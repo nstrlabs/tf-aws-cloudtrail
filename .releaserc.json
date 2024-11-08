@@ -1,5 +1,5 @@
 {
-  "name": "tf-aws-vpn-client",
+  "name": "tf-aws-cloudtrail",
   "extends": "semantic-release",
   "plugins": [
     "@semantic-release/release-notes-generator",
