@@ -1,95 +1,66 @@
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudtrail
+#------------------------------------------------------------------------------
+# Variables that need to be set
+#------------------------------------------------------------------------------
 
-variable "name" {
-  description = "(Required) Name of the trail."
+variable "tags" {
+  description = "A map of tags to add to all resources"
+  type        = map(string)
+  default     = {}
+}
+
+#------------------------------------------------------------------------------
+# CloudTrail
+#------------------------------------------------------------------------------
+
+variable "cloudwatch_log_group_name" {
+  description = "The name of the CloudWatch Log Group that receives CloudTrail events."
+  default     = "CloudtrailEvents"
+  type        = string
+}
+
+variable "enabled" {
+  description = "Enables logging for the trail. Defaults to true. Setting this to false will pause logging."
+  default     = true
+  type        = bool
+}
+
+variable "log_retention_days" {
+  description = "Number of days to keep AWS logs around in specific log group."
+  default     = 90
   type        = string
 }
 
 variable "s3_bucket_name" {
-  description = "(Required) Name of the S3 bucket designated for publishing log files."
+  description = "The name of the AWS S3 bucket."
   type        = string
 }
 
-variable "enable_logging" {
-  description = "(Optional) Enables logging for the trail. Defaults to true. Setting this to false will pause logging."
-  type        = bool
-  default     = null
-}
-
-variable "enable_log_file_validation" {
-  description = "(Optional) Whether log file integrity validation is enabled. Defaults to false."
-  type        = bool
-  default     = true
-}
-
-variable "sns_topic_name" {
-  description = "(Optional) Name of the Amazon SNS topic defined for notification of log file delivery."
+variable "org_trail" {
+  description = "Whether or not this is an organization trail. Only valid in master account."
+  default     = "false"
   type        = string
-  default     = null
 }
 
-variable "is_multi_region_trail" {
-  description = "(Optional) Whether the trail is created in the current region or in all regions. Defaults to false."
-  type        = bool
-  default     = true
-}
-
-variable "include_global_service_events" {
-  description = "(Optional) Whether the trail is publishing events from global services such as IAM to the log files. Defaults to true."
-  type        = bool
-  default     = null
-}
-
-variable "cloud_watch_logs_role_arn" {
-  description = "(Optional) Role for the CloudWatch Logs endpoint to assume to write to a user’s log group."
+variable "trail_name" {
+  description = "Name for the Cloudtrail"
+  default     = "CloudtrailEvents"
   type        = string
-  default     = null
 }
 
-variable "cloud_watch_logs_group_arn" {
-  description = "(Optional) Log group name using an ARN that represents the log group to which CloudTrail logs will be delivered."
+variable "iam_role_name" {
+  description = "Name for the CloudTrail IAM role"
+  default     = "CloudtrailCWLogs"
   type        = string
-  default     = null
 }
 
-variable "tags" {
-  description = "(Optional) Map of tags to assign to the trail. If configured with a provider"
-  type        = map(string)
-  default     = null
-}
-
-variable "kms_key_id" {
-  description = "(Optional) KMS key ARN to use to encrypt the logs delivered by CloudTrail."
+variable "iam_policy_name" {
+  description = "Name for the CloudTrail IAM policy"
+  default     = "CloudtrailCWLogs"
   type        = string
-  default     = null
-}
-
-variable "is_organization_trail" {
-  description = "(Optional) Whether the trail is an AWS Organizations trail. Organization trails log events for the master account and all member accounts. Can only be created in the organization master account."
-  type        = bool
-  default     = null
 }
 
 variable "s3_key_prefix" {
-  description = "(Optional) S3 key prefix that follows the name of the bucket you have designated for log file delivery."
+  description = "S3 key prefix for CloudTrail logs"
+  default     = "onum-cloudtrail"
   type        = string
-  default     = null
-}
-
-variable "insight_selector" {
-  description = "(Optional) Configuration block for identifying unusual operational activity."
-  type        = any
-  default     = null
-}
-
-#variable "event_selector" {
-#  description = "(Optional) Specifies an event selector for enabling data event logging."
-#  type        = any
-#  default     = null
-#}
-
-variable "advanced_event_selector" {
-  description = "(Optional) Specifies an advanced event selector for enabling data event logging."
-  type        = any
-  default     = null
 }
