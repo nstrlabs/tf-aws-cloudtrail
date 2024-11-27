@@ -94,8 +94,7 @@ data "aws_iam_policy_document" "cloudtrail_kms_policy_doc" {
       type = "AWS"
 
       identifiers = [
-        "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root",
-        data.aws_caller_identity.current.arn
+        "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"
       ]
     }
 
@@ -103,9 +102,14 @@ data "aws_iam_policy_document" "cloudtrail_kms_policy_doc" {
   }
 
   statement {
-    sid     = "Allow CloudTrail to encrypt logs"
-    effect  = "Allow"
-    actions = ["kms:GenerateDataKey*"]
+    sid    = "Allow CloudTrail to encrypt logs"
+    effect = "Allow"
+
+    actions = [
+      "kms:GenerateDataKey*",
+      "kms:Decrypt",
+      "kms:ReEncryptFrom",
+    ]
 
     principals {
       type        = "Service"
@@ -129,60 +133,6 @@ data "aws_iam_policy_document" "cloudtrail_kms_policy_doc" {
     principals {
       type        = "Service"
       identifiers = ["cloudtrail.amazonaws.com"]
-    }
-
-    resources = ["*"]
-  }
-
-  statement {
-    sid    = "Allow principals in the account to decrypt log files"
-    effect = "Allow"
-
-    actions = [
-      "kms:Decrypt",
-      "kms:ReEncryptFrom",
-    ]
-
-    principals {
-      type        = "AWS"
-      identifiers = ["*"]
-    }
-
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "kms:CallerAccount"
-      values   = [data.aws_caller_identity.current.account_id]
-    }
-
-    condition {
-      test     = "StringLike"
-      variable = "kms:EncryptionContext:aws:cloudtrail:arn"
-      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/${local.name}"]
-    }
-  }
-
-  statement {
-    sid     = "Allow alias creation during setup"
-    effect  = "Allow"
-    actions = ["kms:CreateAlias"]
-
-    principals {
-      type        = "AWS"
-      identifiers = ["*"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["ec2.${data.aws_region.current.name}.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "kms:CallerAccount"
-      values   = [data.aws_caller_identity.current.account_id]
     }
 
     resources = ["*"]
