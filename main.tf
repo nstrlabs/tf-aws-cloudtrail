@@ -93,7 +93,10 @@ data "aws_iam_policy_document" "cloudtrail_kms_policy_doc" {
     principals {
       type = "AWS"
 
-      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
+      identifiers = [
+        "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root",
+        "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/AWSAFTExecution"
+      ]
     }
 
     resources = ["*"]
