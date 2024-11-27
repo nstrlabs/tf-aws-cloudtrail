@@ -240,7 +240,7 @@ module "kms" {
   version = "3.1.1"
 
   description = "Cloudtrail key for security procedures"
-  aliasses    = ["onum/cloudtrail"]
+  aliases     = ["onum/cloudtrail"]
   policy      = data.aws_iam_policy_document.cloudtrail_kms_policy_doc.json
 }
 
