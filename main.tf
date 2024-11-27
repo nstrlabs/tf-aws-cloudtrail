@@ -239,7 +239,7 @@ module "kms" {
   source  = "terraform-aws-modules/kms/aws"
   version = "3.1.1"
 
-  Description = "Cloudtrail"
+  description = "Cloudtrail key for security procedures"
   aliasses    = ["onum/cloudtrail"]
   policy      = data.aws_iam_policy_document.cloudtrail_kms_policy_doc.json
 }
