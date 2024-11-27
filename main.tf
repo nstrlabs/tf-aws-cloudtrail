@@ -108,7 +108,7 @@ data "aws_iam_policy_document" "cloudtrail_kms_policy_doc" {
     actions = [
       "kms:GenerateDataKey*",
       "kms:Decrypt",
-      "kms:ReEncryptFrom",
+      "kms:ReEncryptFrom"
     ]
 
     principals {
@@ -116,13 +116,19 @@ data "aws_iam_policy_document" "cloudtrail_kms_policy_doc" {
       identifiers = ["cloudtrail.amazonaws.com"]
     }
 
-    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceArn"
+      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${local.name}"]
+    }
 
     condition {
       test     = "StringLike"
       variable = "kms:EncryptionContext:aws:cloudtrail:arn"
-      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/${local.name}"]
+      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"]
     }
+
+    resources = ["*"]
   }
 
   statement {
@@ -159,9 +165,15 @@ data "aws_iam_policy_document" "cloudtrail_kms_policy_doc" {
     }
 
     condition {
+      test     = "StringEquals"
+      variable = "aws:SourceArn"
+      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${local.name}"]
+    }
+
+    condition {
       test     = "StringLike"
       variable = "kms:EncryptionContext:aws:cloudtrail:arn"
-      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/${local.name}"]
+      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"]
     }
 
     resources = ["*"]
