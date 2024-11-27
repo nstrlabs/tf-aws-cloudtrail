@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/nstrlabs/tf-aws-cloudtrail/compare/v1.1.2...v1.1.3) (2024-11-27)
+
+
+### Bug Fixes
+
+* alias name ([d10cc17](https://github.com/nstrlabs/tf-aws-cloudtrail/commit/d10cc17e555a48db3e3cff6c3e0f3df808859bda))
+
 ## [1.1.2](https://github.com/nstrlabs/tf-aws-cloudtrail/compare/v1.1.1...v1.1.2) (2024-11-27)
 
 
