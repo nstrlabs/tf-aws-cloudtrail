@@ -1,67 +1,283 @@
-resource "aws_cloudtrail" "this" {
-  name                          = var.name
-  s3_bucket_name                = var.s3_bucket_name
-  enable_logging                = var.enable_logging == null ? false : var.enable_logging
-  enable_log_file_validation    = var.enable_log_file_validation == null ? false : var.enable_log_file_validation
-  sns_topic_name                = var.sns_topic_name == null ? "" : var.sns_topic_name
-  is_multi_region_trail         = var.is_multi_region_trail == null ? false : var.is_multi_region_trail
-  include_global_service_events = var.include_global_service_events == null ? true : var.include_global_service_events
-  cloud_watch_logs_role_arn     = var.cloud_watch_logs_role_arn == null ? "" : var.cloud_watch_logs_role_arn
-  cloud_watch_logs_group_arn    = var.cloud_watch_logs_group_arn == null ? "" : var.cloud_watch_logs_group_arn
-  kms_key_id                    = var.kms_key_id == null ? "" : var.kms_key_id
-  is_organization_trail         = var.is_organization_trail == null ? false : var.is_organization_trail
-  s3_key_prefix                 = var.s3_key_prefix == null ? "" : var.s3_key_prefix
-  tags                          = var.tags
+#------------------------------------------------------------------------------
+#
+#------------------------------------------------------------------------------
+# The AWS region currently being used.
+data "aws_region" "current" {
+}
 
-  dynamic "insight_selector" {
-    for_each = var.insight_selector == null ? {} : var.insight_selector
-    iterator = insight_selector
+# The AWS account id
+data "aws_caller_identity" "current" {
+}
 
-    content {
-      insight_type = insight_selector.key
+# The AWS partition (commercial or govcloud)
+data "aws_partition" "current" {}
+
+locals {
+  name              = "Onum${var.trail_name}"
+  role_name         = "Onum${var.iam_role_name}"
+  policy_name       = "Onum${var.iam_policy_name}"
+  cw_log_group_name = "Onum${var.cloudwatch_log_group_name}"
+}
+#------------------------------------------------------------------------------
+# CloudTrail - CloudWatch
+#------------------------------------------------------------------------------
+# This section is used for allowing CloudTrail to send logs to CloudWatch.
+#
+
+# This policy allows the CloudTrail service for any account to assume this role.
+data "aws_iam_policy_document" "cloudtrail_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudtrail.amazonaws.com"]
+    }
+  }
+}
+
+# This role is used by CloudTrail to send logs to CloudWatch.
+resource "aws_iam_role" "cloudtrail_cloudwatch_role" {
+  name               = local.role_name
+  assume_role_policy = data.aws_iam_policy_document.cloudtrail_assume_role.json
+}
+
+# This CloudWatch Group is used for storing CloudTrail logs.
+resource "aws_cloudwatch_log_group" "cloudtrail" {
+  name              = local.cw_log_group_name
+  retention_in_days = var.log_retention_days
+  kms_key_id        = module.kms.key_arn
+  tags              = var.tags
+}
+
+data "aws_iam_policy_document" "cloudtrail_cloudwatch_logs" {
+  statement {
+    sid = "WriteCloudWatchLogs"
+
+    effect = "Allow"
+
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+
+    resources = ["arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${local.cw_log_group_name}:*"]
+  }
+}
+
+resource "aws_iam_policy" "cloudtrail_cloudwatch_logs" {
+  name   = local.policy_name
+  policy = data.aws_iam_policy_document.cloudtrail_cloudwatch_logs.json
+}
+
+resource "aws_iam_policy_attachment" "main" {
+  name       = "${local.policy_name}-attachment"
+  policy_arn = aws_iam_policy.cloudtrail_cloudwatch_logs.arn
+  roles      = [aws_iam_role.cloudtrail_cloudwatch_role.name]
+}
+
+#------------------------------------------------------------------------------
+# KMS
+#------------------------------------------------------------------------------
+
+# This policy is a translation of the default created by AWS when you
+# manually enable CloudTrail; you can see it here:
+# https://docs.aws.amazon.com/awscloudtrail/latest/userguide/default-cmk-policy.html
+data "aws_iam_policy_document" "cloudtrail_kms_policy_doc" {
+  statement {
+    sid     = "Enable IAM User Permissions"
+    effect  = "Allow"
+    actions = ["kms:*"]
+
+    principals {
+      type = "AWS"
+
+      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid     = "Allow CloudTrail to encrypt logs"
+    effect  = "Allow"
+    actions = ["kms:GenerateDataKey*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudtrail.amazonaws.com"]
+    }
+
+    resources = ["*"]
+
+    condition {
+      test     = "StringLike"
+      variable = "kms:EncryptionContext:aws:cloudtrail:arn"
+      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"]
     }
   }
 
-  #  dynamic "event_selector" {
-  #    for_each = var.event_selector == null ? [] : [1]
-  #
-  #    content {
-  #      read_write_type                  = var.event_selector.read_write_type == null ? "All" : var.event_selector.read_write_type
-  #      include_management_events        = var.event_selector.include_management_events == null ? true : var.event_selector.include_management_events
-  #      exclude_management_event_sources = var.event_selector.exclude_management_event_sources == null ? [] : var.event_selector.exclude_management_event_sources
-  #
-  #      dynamic "data_resource" {
-  #        for_each = lookup(var.event_selector, "data_resource", null) == null ? [] : [lookup(var.event_selector, "data_resource")]
-  #        content {
-  #          type   = lookup(data_resource.value, "type")
-  #          values = lookup(data_resource.value, "values")
-  #        }
-  #      }
-  #    }
-  #  }
+  statement {
+    sid     = "Allow CloudTrail to describe key"
+    effect  = "Allow"
+    actions = ["kms:DescribeKey"]
 
-  dynamic "advanced_event_selector" {
-    for_each = var.advanced_event_selector == null ? null : var.advanced_event_selector
-    iterator = advanced_event_selector
+    principals {
+      type        = "Service"
+      identifiers = ["cloudtrail.amazonaws.com"]
+    }
 
-    content {
-      name = lookup(advanced_event_selector.value, "name")
+    resources = ["*"]
+  }
 
-      dynamic "field_selector" {
-        for_each = lookup(advanced_event_selector.value, "field_selector", null) == null ? null : lookup(advanced_event_selector.value, "field_selector")
-        iterator = field_selector
+  statement {
+    sid    = "Allow principals in the account to decrypt log files"
+    effect = "Allow"
 
-        content {
-          field = lookup(field_selector.value, "field")
+    actions = [
+      "kms:Decrypt",
+      "kms:ReEncryptFrom",
+    ]
 
-          ends_with       = lookup(field_selector.value, "ends_with", null) == null ? null : lookup(field_selector.value, "ends_with")
-          equals          = lookup(field_selector.value, "equals", null) == null ? null : lookup(field_selector.value, "equals")
-          not_ends_with   = lookup(field_selector.value, "not_ends_with", null) == null ? null : lookup(field_selector.value, "not_ends_with")
-          not_equals      = lookup(field_selector.value, "not_equals", null) == null ? null : lookup(field_selector.value, "not_equals")
-          not_starts_with = lookup(field_selector.value, "not_starts_with", null) == null ? null : lookup(field_selector.value, "not_starts_with")
-          starts_with     = lookup(field_selector.value, "starts_with", null) == null ? null : lookup(field_selector.value, "starts_with")
-        }
-      }
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:CallerAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "kms:EncryptionContext:aws:cloudtrail:arn"
+      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"]
     }
   }
+
+  statement {
+    sid     = "Allow alias creation during setup"
+    effect  = "Allow"
+    actions = ["kms:CreateAlias"]
+
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["ec2.${data.aws_region.current.name}.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:CallerAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "Enable cross account log decryption"
+    effect = "Allow"
+
+    actions = [
+      "kms:Decrypt",
+      "kms:ReEncryptFrom",
+    ]
+
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:CallerAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "kms:EncryptionContext:aws:cloudtrail:arn"
+      values   = ["arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"]
+    }
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "Allow logs KMS access"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["logs.${data.aws_region.current.name}.amazonaws.com"]
+    }
+
+    actions = [
+      "kms:Encrypt*",
+      "kms:Decrypt*",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:Describe*"
+    ]
+    resources = ["*"]
+  }
+
+}
+
+module "kms" {
+  source  = "terraform-aws-modules/kms/aws"
+  version = "3.1.1"
+
+  Description = "Cloudtrail"
+  aliasses    = ["onum/cloudtrail"]
+  policy      = data.aws_iam_policy_document.cloudtrail_kms_policy_doc.json
+}
+
+#------------------------------------------------------------------------------
+# CloudTrail
+#------------------------------------------------------------------------------
+
+resource "aws_cloudtrail" "main" {
+  name = local.name
+
+  # Send logs to CloudWatch Logs
+  cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
+  cloud_watch_logs_role_arn  = aws_iam_role.cloudtrail_cloudwatch_role.arn
+
+  # Send logs to S3
+  s3_key_prefix  = var.s3_key_prefix
+  s3_bucket_name = var.s3_bucket_name
+
+  # Note that organization trails can *only* be created in organization
+  # master accounts; this will fail if run in a non-master account.
+  is_organization_trail = var.org_trail
+
+  # use a single s3 bucket for all aws regions
+  is_multi_region_trail = true
+
+  # enable log file validation to detect tampering
+  enable_log_file_validation = true
+
+  kms_key_id = module.kms.key_arn
+
+  # Enables logging for the trail. Defaults to true. Setting this to false will pause logging.
+  enable_logging = var.enabled
+
+  tags = var.tags
+
+
+  depends_on = [
+    module.kms
+  ]
 }
