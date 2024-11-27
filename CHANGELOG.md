@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/nstrlabs/tf-aws-cloudtrail/compare/v1.0.0...v1.1.0) (2024-11-27)
+
+
+### Features
+
+* new module ([3b09d41](https://github.com/nstrlabs/tf-aws-cloudtrail/commit/3b09d41caceccc6ce9cf403e0b1e3f1c271bce57))
+
 # 1.0.0 (2024-11-11)
 
 
