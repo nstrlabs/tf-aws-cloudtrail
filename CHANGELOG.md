@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/nstrlabs/tf-aws-cloudtrail/compare/v1.1.0...v1.1.1) (2024-11-27)
+
+
+### Bug Fixes
+
+* README ([6bd8d4e](https://github.com/nstrlabs/tf-aws-cloudtrail/commit/6bd8d4e66dcf09a542ccb6f2b2c64f53b428338d))
+
 # [1.1.0](https://github.com/nstrlabs/tf-aws-cloudtrail/compare/v1.0.0...v1.1.0) (2024-11-27)
 
 
